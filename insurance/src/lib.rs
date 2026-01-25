@@ -489,9 +489,9 @@ mod tests {
         for policy in active_policies.iter() {
             ids.push_back(policy.id);
         }
-        assert!(ids.contains(&policy_id1));
-        assert!(ids.contains(&policy_id3));
-        assert!(!ids.contains(&policy_id2));
+        assert!(ids.contains(policy_id1));
+        assert!(ids.contains(policy_id3));
+        assert!(!ids.contains(policy_id2));
     }
 
     #[test]
@@ -568,11 +568,11 @@ mod tests {
         ];
         let coverage_type = String::from_str(&env, "health");
 
-        for i in 0..5 {
+        for (i, policy_name) in policy_names.iter().enumerate() {
             let premium = ((i + 1) as i128) * 100;
             let coverage = ((i + 1) as i128) * 10000;
             let policy_id =
-                client.create_policy(&owner, &policy_names[i], &coverage_type, &premium, &coverage);
+                client.create_policy(&owner, policy_name, &coverage_type, &premium, &coverage);
             policy_ids.push_back(policy_id);
         }
 
