@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec,
+};
 
 // Event topics
 const BILL_CREATED: Symbol = symbol_short!("created");
@@ -178,7 +180,8 @@ impl BillPayments {
                     due_date: next_due_date,
                     timestamp: env.ledger().timestamp(),
                 };
-                env.events().publish((RECURRING_BILL_CREATED,), recurring_event);
+                env.events()
+                    .publish((RECURRING_BILL_CREATED,), recurring_event);
 
                 bills.set(next_id, next_bill);
                 env.storage()
@@ -341,9 +344,27 @@ mod test {
         let client = BillPaymentsClient::new(&env, &contract_id);
 
         // Create multiple bills
-        client.create_bill(&String::from_str(&env, "Bill 1"), &100, &1735689600, &false, &0);
-        client.create_bill(&String::from_str(&env, "Bill 2"), &200, &1735689600, &false, &0);
-        client.create_bill(&String::from_str(&env, "Bill 3"), &300, &1735689600, &true, &30);
+        client.create_bill(
+            &String::from_str(&env, "Bill 1"),
+            &100,
+            &1735689600,
+            &false,
+            &0,
+        );
+        client.create_bill(
+            &String::from_str(&env, "Bill 2"),
+            &200,
+            &1735689600,
+            &false,
+            &0,
+        );
+        client.create_bill(
+            &String::from_str(&env, "Bill 3"),
+            &300,
+            &1735689600,
+            &true,
+            &30,
+        );
 
         // Should have 3 BillCreated events
         let events = env.events().all();

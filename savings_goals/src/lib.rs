@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec,
+};
 
 // Event topics
 const GOAL_CREATED: Symbol = symbol_short!("created");
@@ -244,11 +246,7 @@ mod test {
         let client = SavingsGoalsClient::new(&env, &contract_id);
 
         // Create a goal
-        let goal_id = client.create_goal(
-            &String::from_str(&env, "Medical"),
-            &5000,
-            &1735689600,
-        );
+        let goal_id = client.create_goal(&String::from_str(&env, "Medical"), &5000, &1735689600);
 
         // Get events before adding funds
         let events_before = env.events().all().len();

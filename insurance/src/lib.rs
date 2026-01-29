@@ -1,5 +1,7 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec,
+};
 
 // Event topics
 const POLICY_CREATED: Symbol = symbol_short!("created");
