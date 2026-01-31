@@ -1,5 +1,45 @@
 #![no_std]
 use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec,
+};
+
+// Event topics
+const BILL_CREATED: Symbol = symbol_short!("created");
+const BILL_PAID: Symbol = symbol_short!("paid");
+const RECURRING_BILL_CREATED: Symbol = symbol_short!("recurring");
+
+// Event data structures
+#[derive(Clone)]
+#[contracttype]
+pub struct BillCreatedEvent {
+    pub bill_id: u32,
+    pub name: String,
+    pub amount: i128,
+    pub due_date: u64,
+    pub recurring: bool,
+    pub timestamp: u64,
+}
+
+#[derive(Clone)]
+#[contracttype]
+pub struct BillPaidEvent {
+    pub bill_id: u32,
+    pub name: String,
+    pub amount: i128,
+    pub timestamp: u64,
+}
+
+#[derive(Clone)]
+#[contracttype]
+pub struct RecurringBillCreatedEvent {
+    pub bill_id: u32,
+    pub parent_bill_id: u32,
+    pub name: String,
+    pub amount: i128,
+    pub due_date: u64,
+    pub timestamp: u64,
+}
+use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, Map, String,
     Vec,
 };
@@ -128,6 +168,18 @@ impl BillPayments {
             .instance()
             .set(&symbol_short!("NEXT_ID"), &next_id);
 
+        // Emit BillCreated event
+        let event = BillCreatedEvent {
+            bill_id: next_id,
+            name: name.clone(),
+            amount,
+            due_date,
+            recurring,
+            timestamp: env.ledger().timestamp(),
+        };
+        env.events().publish((BILL_CREATED,), event);
+
+        next_id
         // Emit event for audit trail
         env.events().publish(
             (symbol_short!("bill"), BillEvent::Created),
@@ -164,6 +216,54 @@ impl BillPayments {
 
         let mut bill = bills.get(bill_id).ok_or(Error::BillNotFound)?;
 
+            bill.paid = true;
+
+            // Emit BillPaid event
+            let paid_event = BillPaidEvent {
+                bill_id,
+                name: bill.name.clone(),
+                amount: bill.amount,
+                timestamp: env.ledger().timestamp(),
+            };
+            env.events().publish((BILL_PAID,), paid_event);
+
+            // If recurring, create next bill
+            if bill.recurring {
+                let next_due_date = bill.due_date + (bill.frequency_days as u64 * 86400);
+                let next_bill = Bill {
+                    id: env
+                        .storage()
+                        .instance()
+                        .get(&symbol_short!("NEXT_ID"))
+                        .unwrap_or(0u32)
+                        + 1,
+                    name: bill.name.clone(),
+                    amount: bill.amount,
+                    due_date: next_due_date,
+                    recurring: true,
+                    frequency_days: bill.frequency_days,
+                    paid: false,
+                };
+
+                let next_id = next_bill.id;
+
+                // Emit RecurringBillCreated event
+                let recurring_event = RecurringBillCreatedEvent {
+                    bill_id: next_id,
+                    parent_bill_id: bill_id,
+                    name: bill.name.clone(),
+                    amount: bill.amount,
+                    due_date: next_due_date,
+                    timestamp: env.ledger().timestamp(),
+                };
+                env.events()
+                    .publish((RECURRING_BILL_CREATED,), recurring_event);
+
+                bills.set(next_id, next_bill);
+                env.storage()
+                    .instance()
+                    .set(&symbol_short!("NEXT_ID"), &next_id);
+            }
         // Access control: verify caller is the owner
         if bill.owner != caller {
             return Err(Error::Unauthorized);
@@ -671,4 +771,117 @@ impl BillPayments {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
+    use soroban_sdk::testutils::Events;
+
+    #[test]
+    fn test_create_bill_emits_event() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, BillPayments);
+        let client = BillPaymentsClient::new(&env, &contract_id);
+
+        // Create a bill
+        let bill_id = client.create_bill(
+            &String::from_str(&env, "Electricity"),
+            &500,
+            &1735689600,
+            &false,
+            &0,
+        );
+        assert_eq!(bill_id, 1);
+
+        // Verify event was emitted
+        let events = env.events().all();
+        assert_eq!(events.len(), 1);
+    }
+
+    #[test]
+    fn test_pay_bill_emits_event() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, BillPayments);
+        let client = BillPaymentsClient::new(&env, &contract_id);
+
+        // Create a bill
+        let bill_id = client.create_bill(
+            &String::from_str(&env, "Water Bill"),
+            &300,
+            &1735689600,
+            &false,
+            &0,
+        );
+
+        // Get events before paying
+        let events_before = env.events().all().len();
+
+        // Pay the bill
+        let result = client.pay_bill(&bill_id);
+        assert!(result);
+
+        // Verify BillPaid event was emitted (1 new event)
+        let events_after = env.events().all().len();
+        assert_eq!(events_after - events_before, 1);
+    }
+
+    #[test]
+    fn test_pay_recurring_bill_emits_multiple_events() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, BillPayments);
+        let client = BillPaymentsClient::new(&env, &contract_id);
+
+        // Create a recurring bill
+        let bill_id = client.create_bill(
+            &String::from_str(&env, "Rent"),
+            &1000,
+            &1735689600,
+            &true,
+            &30, // Monthly
+        );
+
+        // Get events before paying
+        let events_before = env.events().all().len();
+
+        // Pay the recurring bill
+        client.pay_bill(&bill_id);
+
+        // Should emit BillPaid and RecurringBillCreated events (2 new events)
+        let events_after = env.events().all().len();
+        assert_eq!(events_after - events_before, 2);
+    }
+
+    #[test]
+    fn test_multiple_bills_emit_separate_events() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, BillPayments);
+        let client = BillPaymentsClient::new(&env, &contract_id);
+
+        // Create multiple bills
+        client.create_bill(
+            &String::from_str(&env, "Bill 1"),
+            &100,
+            &1735689600,
+            &false,
+            &0,
+        );
+        client.create_bill(
+            &String::from_str(&env, "Bill 2"),
+            &200,
+            &1735689600,
+            &false,
+            &0,
+        );
+        client.create_bill(
+            &String::from_str(&env, "Bill 3"),
+            &300,
+            &1735689600,
+            &true,
+            &30,
+        );
+
+        // Should have 3 BillCreated events
+        let events = env.events().all();
+        assert_eq!(events.len(), 3);
+    }
+}
 mod test;
