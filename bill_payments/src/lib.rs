@@ -554,7 +554,8 @@ impl BillPayments {
                         bill.paid_at = Some(current_time);
 
                         if bill.recurring {
-                            let next_due_date = bill.due_date + (bill.frequency_days as u64 * 86400);
+                            let next_due_date =
+                                bill.due_date + (bill.frequency_days as u64 * 86400);
                             let next_id = env
                                 .storage()
                                 .instance()

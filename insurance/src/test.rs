@@ -286,199 +286,199 @@ fn test_multiple_premium_payments() {
 
 #[test]
 fn test_create_premium_schedule() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, Insurance);
-        let client = InsuranceClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+    let env = Env::default();
+    let contract_id = env.register_contract(None, Insurance);
+    let client = InsuranceClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let policy_id = client.create_policy(
-            &owner,
-            &String::from_str(&env, "Health Insurance"),
-            &String::from_str(&env, "health"),
-            &500,
-            &50000,
-        );
+    let policy_id = client.create_policy(
+        &owner,
+        &String::from_str(&env, "Health Insurance"),
+        &String::from_str(&env, "health"),
+        &500,
+        &50000,
+    );
 
-        let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
-        assert_eq!(schedule_id, 1);
+    let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
+    assert_eq!(schedule_id, 1);
 
-        let schedule = client.get_premium_schedule(&schedule_id);
-        assert!(schedule.is_some());
-        let schedule = schedule.unwrap();
-        assert_eq!(schedule.next_due, 3000);
-        assert_eq!(schedule.interval, 2592000);
-        assert!(schedule.active);
-    }
+    let schedule = client.get_premium_schedule(&schedule_id);
+    assert!(schedule.is_some());
+    let schedule = schedule.unwrap();
+    assert_eq!(schedule.next_due, 3000);
+    assert_eq!(schedule.interval, 2592000);
+    assert!(schedule.active);
+}
 
-    #[test]
-    fn test_modify_premium_schedule() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, Insurance);
-        let client = InsuranceClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_modify_premium_schedule() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, Insurance);
+    let client = InsuranceClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let policy_id = client.create_policy(
-            &owner,
-            &String::from_str(&env, "Health Insurance"),
-            &String::from_str(&env, "health"),
-            &500,
-            &50000,
-        );
+    let policy_id = client.create_policy(
+        &owner,
+        &String::from_str(&env, "Health Insurance"),
+        &String::from_str(&env, "health"),
+        &500,
+        &50000,
+    );
 
-        let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
-        client.modify_premium_schedule(&owner, &schedule_id, &4000, &2678400);
+    let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
+    client.modify_premium_schedule(&owner, &schedule_id, &4000, &2678400);
 
-        let schedule = client.get_premium_schedule(&schedule_id).unwrap();
-        assert_eq!(schedule.next_due, 4000);
-        assert_eq!(schedule.interval, 2678400);
-    }
+    let schedule = client.get_premium_schedule(&schedule_id).unwrap();
+    assert_eq!(schedule.next_due, 4000);
+    assert_eq!(schedule.interval, 2678400);
+}
 
-    #[test]
-    fn test_cancel_premium_schedule() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, Insurance);
-        let client = InsuranceClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_cancel_premium_schedule() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, Insurance);
+    let client = InsuranceClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let policy_id = client.create_policy(
-            &owner,
-            &String::from_str(&env, "Health Insurance"),
-            &String::from_str(&env, "health"),
-            &500,
-            &50000,
-        );
+    let policy_id = client.create_policy(
+        &owner,
+        &String::from_str(&env, "Health Insurance"),
+        &String::from_str(&env, "health"),
+        &500,
+        &50000,
+    );
 
-        let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
-        client.cancel_premium_schedule(&owner, &schedule_id);
+    let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
+    client.cancel_premium_schedule(&owner, &schedule_id);
 
-        let schedule = client.get_premium_schedule(&schedule_id).unwrap();
-        assert!(!schedule.active);
-    }
+    let schedule = client.get_premium_schedule(&schedule_id).unwrap();
+    assert!(!schedule.active);
+}
 
-    #[test]
-    fn test_execute_due_premium_schedules() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, Insurance);
-        let client = InsuranceClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_execute_due_premium_schedules() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, Insurance);
+    let client = InsuranceClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let policy_id = client.create_policy(
-            &owner,
-            &String::from_str(&env, "Health Insurance"),
-            &String::from_str(&env, "health"),
-            &500,
-            &50000,
-        );
+    let policy_id = client.create_policy(
+        &owner,
+        &String::from_str(&env, "Health Insurance"),
+        &String::from_str(&env, "health"),
+        &500,
+        &50000,
+    );
 
-        let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &0);
+    let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &0);
 
-        set_time(&env, 3500);
-        let executed = client.execute_due_premium_schedules();
+    set_time(&env, 3500);
+    let executed = client.execute_due_premium_schedules();
 
-        assert_eq!(executed.len(), 1);
-        assert_eq!(executed.get(0).unwrap(), schedule_id);
+    assert_eq!(executed.len(), 1);
+    assert_eq!(executed.get(0).unwrap(), schedule_id);
 
-        let policy = client.get_policy(&policy_id).unwrap();
-        assert_eq!(policy.next_payment_date, 3500 + 30 * 86400);
-    }
+    let policy = client.get_policy(&policy_id).unwrap();
+    assert_eq!(policy.next_payment_date, 3500 + 30 * 86400);
+}
 
-    #[test]
-    fn test_execute_recurring_premium_schedule() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, Insurance);
-        let client = InsuranceClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_execute_recurring_premium_schedule() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, Insurance);
+    let client = InsuranceClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let policy_id = client.create_policy(
-            &owner,
-            &String::from_str(&env, "Health Insurance"),
-            &String::from_str(&env, "health"),
-            &500,
-            &50000,
-        );
+    let policy_id = client.create_policy(
+        &owner,
+        &String::from_str(&env, "Health Insurance"),
+        &String::from_str(&env, "health"),
+        &500,
+        &50000,
+    );
 
-        let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
+    let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
 
-        set_time(&env, 3500);
-        client.execute_due_premium_schedules();
+    set_time(&env, 3500);
+    client.execute_due_premium_schedules();
 
-        let schedule = client.get_premium_schedule(&schedule_id).unwrap();
-        assert!(schedule.active);
-        assert_eq!(schedule.next_due, 3000 + 2592000);
-    }
+    let schedule = client.get_premium_schedule(&schedule_id).unwrap();
+    assert!(schedule.active);
+    assert_eq!(schedule.next_due, 3000 + 2592000);
+}
 
-    #[test]
-    fn test_execute_missed_premium_schedules() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, Insurance);
-        let client = InsuranceClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_execute_missed_premium_schedules() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, Insurance);
+    let client = InsuranceClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let policy_id = client.create_policy(
-            &owner,
-            &String::from_str(&env, "Health Insurance"),
-            &String::from_str(&env, "health"),
-            &500,
-            &50000,
-        );
+    let policy_id = client.create_policy(
+        &owner,
+        &String::from_str(&env, "Health Insurance"),
+        &String::from_str(&env, "health"),
+        &500,
+        &50000,
+    );
 
-        let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
+    let schedule_id = client.create_premium_schedule(&owner, &policy_id, &3000, &2592000);
 
-        set_time(&env, 3000 + 2592000 * 3 + 100);
-        client.execute_due_premium_schedules();
+    set_time(&env, 3000 + 2592000 * 3 + 100);
+    client.execute_due_premium_schedules();
 
-        let schedule = client.get_premium_schedule(&schedule_id).unwrap();
-        assert_eq!(schedule.missed_count, 3);
-        assert!(schedule.next_due > 3000 + 2592000 * 3);
-    }
+    let schedule = client.get_premium_schedule(&schedule_id).unwrap();
+    assert_eq!(schedule.missed_count, 3);
+    assert!(schedule.next_due > 3000 + 2592000 * 3);
+}
 
-    #[test]
-    fn test_get_premium_schedules() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, Insurance);
-        let client = InsuranceClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_get_premium_schedules() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, Insurance);
+    let client = InsuranceClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let policy_id1 = client.create_policy(
-            &owner,
-            &String::from_str(&env, "Health Insurance"),
-            &String::from_str(&env, "health"),
-            &500,
-            &50000,
-        );
+    let policy_id1 = client.create_policy(
+        &owner,
+        &String::from_str(&env, "Health Insurance"),
+        &String::from_str(&env, "health"),
+        &500,
+        &50000,
+    );
 
-        let policy_id2 = client.create_policy(
-            &owner,
-            &String::from_str(&env, "Life Insurance"),
-            &String::from_str(&env, "life"),
-            &300,
-            &100000,
-        );
+    let policy_id2 = client.create_policy(
+        &owner,
+        &String::from_str(&env, "Life Insurance"),
+        &String::from_str(&env, "life"),
+        &300,
+        &100000,
+    );
 
-        client.create_premium_schedule(&owner, &policy_id1, &3000, &2592000);
-        client.create_premium_schedule(&owner, &policy_id2, &4000, &2592000);
+    client.create_premium_schedule(&owner, &policy_id1, &3000, &2592000);
+    client.create_premium_schedule(&owner, &policy_id2, &4000, &2592000);
 
-        let schedules = client.get_premium_schedules(&owner);
-        assert_eq!(schedules.len(), 2);
-    }
+    let schedules = client.get_premium_schedules(&owner);
+    assert_eq!(schedules.len(), 2);
+}

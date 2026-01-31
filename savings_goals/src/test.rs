@@ -1,5 +1,8 @@
 use super::*;
-use soroban_sdk::{testutils::{Address as AddressTrait, Ledger, LedgerInfo}, Address, Env, String};
+use soroban_sdk::{
+    testutils::{Address as AddressTrait, Ledger, LedgerInfo},
+    Address, Env, String,
+};
 
 fn set_time(env: &Env, timestamp: u64) {
     let proto = env.ledger().protocol_version();
@@ -344,267 +347,217 @@ fn test_exact_goal_completion() {
     assert_eq!(goal.current_amount, 1000);
 }
 
-    #[test]
-    fn test_set_time_lock() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_set_time_lock() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        client.set_time_lock(&owner, &goal_id, &10000);
+    client.set_time_lock(&owner, &goal_id, &10000);
 
-        let goal = client.get_goal(&goal_id).unwrap();
-        assert_eq!(goal.unlock_date, Some(10000));
-    }
+    let goal = client.get_goal(&goal_id).unwrap();
+    assert_eq!(goal.unlock_date, Some(10000));
+}
 
-    #[test]
-    fn test_withdraw_time_locked_goal_before_unlock() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_withdraw_time_locked_goal_before_unlock() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        client.add_to_goal(&owner, &goal_id, &5000);
-        client.unlock_goal(&owner, &goal_id);
-        client.set_time_lock(&owner, &goal_id, &10000);
+    client.add_to_goal(&owner, &goal_id, &5000);
+    client.unlock_goal(&owner, &goal_id);
+    client.set_time_lock(&owner, &goal_id, &10000);
 
-        let result = client.try_withdraw_from_goal(&owner, &goal_id, &1000);
-        assert!(result.is_err());
-    }
+    let result = client.try_withdraw_from_goal(&owner, &goal_id, &1000);
+    assert!(result.is_err());
+}
 
-    #[test]
-    fn test_withdraw_time_locked_goal_after_unlock() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_withdraw_time_locked_goal_after_unlock() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        client.add_to_goal(&owner, &goal_id, &5000);
-        client.unlock_goal(&owner, &goal_id);
-        client.set_time_lock(&owner, &goal_id, &3000);
+    client.add_to_goal(&owner, &goal_id, &5000);
+    client.unlock_goal(&owner, &goal_id);
+    client.set_time_lock(&owner, &goal_id, &3000);
 
-        set_time(&env, 3500);
-        let new_amount = client.withdraw_from_goal(&owner, &goal_id, &1000);
-        assert_eq!(new_amount, 4000);
-    }
+    set_time(&env, 3500);
+    let new_amount = client.withdraw_from_goal(&owner, &goal_id, &1000);
+    assert_eq!(new_amount, 4000);
+}
 
-    #[test]
-    fn test_create_savings_schedule() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_create_savings_schedule() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
-        assert_eq!(schedule_id, 1);
+    let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
+    assert_eq!(schedule_id, 1);
 
-        let schedule = client.get_savings_schedule(&schedule_id);
-        assert!(schedule.is_some());
-        let schedule = schedule.unwrap();
-        assert_eq!(schedule.amount, 500);
-        assert_eq!(schedule.next_due, 3000);
-        assert!(schedule.active);
-    }
+    let schedule = client.get_savings_schedule(&schedule_id);
+    assert!(schedule.is_some());
+    let schedule = schedule.unwrap();
+    assert_eq!(schedule.amount, 500);
+    assert_eq!(schedule.next_due, 3000);
+    assert!(schedule.active);
+}
 
-    #[test]
-    fn test_modify_savings_schedule() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_modify_savings_schedule() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
-        client.modify_savings_schedule(&owner, &schedule_id, &1000, &4000, &172800);
+    let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
+    client.modify_savings_schedule(&owner, &schedule_id, &1000, &4000, &172800);
 
-        let schedule = client.get_savings_schedule(&schedule_id).unwrap();
-        assert_eq!(schedule.amount, 1000);
-        assert_eq!(schedule.next_due, 4000);
-        assert_eq!(schedule.interval, 172800);
-    }
+    let schedule = client.get_savings_schedule(&schedule_id).unwrap();
+    assert_eq!(schedule.amount, 1000);
+    assert_eq!(schedule.next_due, 4000);
+    assert_eq!(schedule.interval, 172800);
+}
 
-    #[test]
-    fn test_cancel_savings_schedule() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_cancel_savings_schedule() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
-        client.cancel_savings_schedule(&owner, &schedule_id);
+    let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
+    client.cancel_savings_schedule(&owner, &schedule_id);
 
-        let schedule = client.get_savings_schedule(&schedule_id).unwrap();
-        assert!(!schedule.active);
-    }
+    let schedule = client.get_savings_schedule(&schedule_id).unwrap();
+    assert!(!schedule.active);
+}
 
-    #[test]
-    fn test_execute_due_savings_schedules() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_execute_due_savings_schedules() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &0);
+    let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &0);
 
-        set_time(&env, 3500);
-        let executed = client.execute_due_savings_schedules();
+    set_time(&env, 3500);
+    let executed = client.execute_due_savings_schedules();
 
-        assert_eq!(executed.len(), 1);
-        assert_eq!(executed.get(0).unwrap(), schedule_id);
+    assert_eq!(executed.len(), 1);
+    assert_eq!(executed.get(0).unwrap(), schedule_id);
 
-        let goal = client.get_goal(&goal_id).unwrap();
-        assert_eq!(goal.current_amount, 500);
-    }
+    let goal = client.get_goal(&goal_id).unwrap();
+    assert_eq!(goal.current_amount, 500);
+}
 
-    #[test]
-    fn test_execute_recurring_savings_schedule() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_execute_recurring_savings_schedule() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
+    let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
 
-        set_time(&env, 3500);
-        client.execute_due_savings_schedules();
+    set_time(&env, 3500);
+    client.execute_due_savings_schedules();
 
-        let schedule = client.get_savings_schedule(&schedule_id).unwrap();
-        assert!(schedule.active);
-        assert_eq!(schedule.next_due, 3000 + 86400);
+    let schedule = client.get_savings_schedule(&schedule_id).unwrap();
+    assert!(schedule.active);
+    assert_eq!(schedule.next_due, 3000 + 86400);
 
-        let goal = client.get_goal(&goal_id).unwrap();
-        assert_eq!(goal.current_amount, 500);
-    }
+    let goal = client.get_goal(&goal_id).unwrap();
+    assert_eq!(goal.current_amount, 500);
+}
 
-    #[test]
-    fn test_execute_missed_savings_schedules() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_execute_missed_savings_schedules() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &10000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &10000, &5000);
 
-        let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
+    let schedule_id = client.create_savings_schedule(&owner, &goal_id, &500, &3000, &86400);
 
-        set_time(&env, 3000 + 86400 * 3 + 100);
-        client.execute_due_savings_schedules();
+    set_time(&env, 3000 + 86400 * 3 + 100);
+    client.execute_due_savings_schedules();
 
-        let schedule = client.get_savings_schedule(&schedule_id).unwrap();
-        assert_eq!(schedule.missed_count, 3);
-        assert!(schedule.next_due > 3000 + 86400 * 3);
-    }
+    let schedule = client.get_savings_schedule(&schedule_id).unwrap();
+    assert_eq!(schedule.missed_count, 3);
+    assert!(schedule.next_due > 3000 + 86400 * 3);
+}
 
-    #[test]
-    fn test_savings_schedule_goal_completion() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoalContract);
-        let client = SavingsGoalContractClient::new(&env, &contract_id);
-        let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
+#[test]
+fn test_savings_schedule_goal_completion() {
+    let env = Env::default();
+    let contract_id = env.register_contract(None, SavingsGoalContract);
+    let client = SavingsGoalContractClient::new(&env, &contract_id);
+    let owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
 
-        env.mock_all_auths();
-        set_time(&env, 1000);
+    env.mock_all_auths();
+    set_time(&env, 1000);
 
-        let goal_id = client.create_goal(
-            &owner,
-            &String::from_str(&env, "Education"),
-            &1000,
-            &5000,
-        );
+    let goal_id = client.create_goal(&owner, &String::from_str(&env, "Education"), &1000, &5000);
 
-        client.create_savings_schedule(&owner, &goal_id, &1000, &3000, &0);
+    client.create_savings_schedule(&owner, &goal_id, &1000, &3000, &0);
 
-        set_time(&env, 3500);
-        client.execute_due_savings_schedules();
+    set_time(&env, 3500);
+    client.execute_due_savings_schedules();
 
-        let goal = client.get_goal(&goal_id).unwrap();
-        assert_eq!(goal.current_amount, 1000);
-        assert!(client.is_goal_completed(&goal_id));
-    }
+    let goal = client.get_goal(&goal_id).unwrap();
+    assert_eq!(goal.current_amount, 1000);
+    assert!(client.is_goal_completed(&goal_id));
+}
