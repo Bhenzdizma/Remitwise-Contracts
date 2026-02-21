@@ -1,18 +1,26 @@
 #![no_std]
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, vec, Env, Symbol, Vec};
+use soroban_sdk::{
+    contract, contracterror, contractimpl, contracttype, symbol_short, token::TokenClient, vec,
+    Address, Env, Map, Symbol, Vec,
+};
+
+#[cfg(test)]
+mod test;
 
 // Event topics
 const SPLIT_INITIALIZED: Symbol = symbol_short!("init");
 const SPLIT_CALCULATED: Symbol = symbol_short!("calc");
 
 // Event data structures
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[contracttype]
 pub struct SplitInitializedEvent {
-use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, symbol_short, token::TokenClient, vec,
-    Address, Env, Map, Symbol, Vec,
-};
+    pub spending_percent: u32,
+    pub savings_percent: u32,
+    pub bills_percent: u32,
+    pub insurance_percent: u32,
+    pub timestamp: u64,
+}
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
@@ -59,9 +67,10 @@ pub struct SplitConfig {
     pub bills_percent: u32,
     pub insurance_percent: u32,
     pub timestamp: u64,
+    pub initialized: bool,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[contracttype]
 pub struct SplitCalculatedEvent {
     pub total_amount: i128,
@@ -75,7 +84,7 @@ pub struct SplitCalculatedEvent {
 
 /// Events emitted by the contract for audit trail
 #[contracttype]
-#[derive(Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SplitEvent {
     Initialized,
     Updated,
@@ -186,6 +195,7 @@ impl RemittanceSplit {
             savings_percent,
             bills_percent,
             insurance_percent,
+            timestamp: env.ledger().timestamp(),
             initialized: true,
         };
 
@@ -370,6 +380,7 @@ impl RemittanceSplit {
             bills_amount: bills,
             insurance_amount: insurance,
             timestamp: env.ledger().timestamp(),
+            initialized: true,
         };
         env.events().publish((SPLIT_CALCULATED,), event);
         // Emit event for audit trail
@@ -798,69 +809,5 @@ impl RemittanceSplit {
             .unwrap_or_else(|| Map::new(&env));
 
         schedules.get(schedule_id)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-    use soroban_sdk::testutils::Events;
-
-    #[test]
-    fn test_initialize_split_emits_event() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, RemittanceSplit);
-        let client = RemittanceSplitClient::new(&env, &contract_id);
-
-        // Initialize split
-        let result = client.initialize_split(&50, &30, &15, &5);
-        assert!(result);
-
-        // Verify event was emitted
-        let events = env.events().all();
-        assert_eq!(events.len(), 1);
-    }
-
-    #[test]
-    fn test_calculate_split_emits_event() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, RemittanceSplit);
-        let client = RemittanceSplitClient::new(&env, &contract_id);
-
-        // Initialize split first
-        client.initialize_split(&40, &30, &20, &10);
-
-        // Get events before calculating
-        let events_before = env.events().all().len();
-
-        // Calculate split
-        let result = client.calculate_split(&1000);
-        assert_eq!(result.len(), 4);
-        assert_eq!(result.get(0).unwrap(), 400); // 40% of 1000
-        assert_eq!(result.get(1).unwrap(), 300); // 30% of 1000
-        assert_eq!(result.get(2).unwrap(), 200); // 20% of 1000
-        assert_eq!(result.get(3).unwrap(), 100); // 10% of 1000
-
-        // Verify 1 new event was emitted
-        let events_after = env.events().all().len();
-        assert_eq!(events_after - events_before, 1);
-    }
-
-    #[test]
-    fn test_multiple_operations_emit_multiple_events() {
-        let env = Env::default();
-        let contract_id = env.register_contract(None, RemittanceSplit);
-        let client = RemittanceSplitClient::new(&env, &contract_id);
-
-        // Initialize split
-        client.initialize_split(&50, &25, &15, &10);
-
-        // Calculate split twice
-        client.calculate_split(&2000);
-        client.calculate_split(&3000);
-
-        // Should have 3 events total (1 init + 2 calc)
-        let events = env.events().all();
-        assert_eq!(events.len(), 3);
     }
 }

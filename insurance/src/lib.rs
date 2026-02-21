@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, Address, Env, Map, String, Symbol, Vec,
 };
 
 // Event topics
@@ -37,9 +37,6 @@ pub struct PolicyDeactivatedEvent {
     pub name: String,
     pub timestamp: u64,
 }
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, Map, String, Vec,
-};
 
 // Storage TTL constants
 const INSTANCE_LIFETIME_THRESHOLD: u32 = 17280; // ~1 day
@@ -222,29 +219,22 @@ impl Insurance {
             panic!("Only the policy owner can pay premiums");
         }
 
-            // Emit PremiumPaid event
-            let event = PremiumPaidEvent {
-                policy_id,
-                name: policy.name.clone(),
-                amount: policy.monthly_premium,
-                next_payment_date: policy.next_payment_date,
-                timestamp: env.ledger().timestamp(),
-            };
-            env.events().publish((PREMIUM_PAID,), event);
-
-            policies.set(policy_id, policy);
-            env.storage()
-                .instance()
-                .set(&symbol_short!("POLICIES"), &policies);
-            true
-        } else {
-            false
         if !policy.active {
             panic!("Policy is not active");
         }
 
         // Update next payment date to 30 days from now
         policy.next_payment_date = env.ledger().timestamp() + (30 * 86400);
+
+        // Emit PremiumPaid event
+        let event = PremiumPaidEvent {
+            policy_id,
+            name: policy.name.clone(),
+            amount: policy.monthly_premium,
+            next_payment_date: policy.next_payment_date,
+            timestamp: env.ledger().timestamp(),
+        };
+        env.events().publish((PREMIUM_PAID,), event);
 
         policies.set(policy_id, policy);
         env.storage()
@@ -365,27 +355,8 @@ impl Insurance {
                 .set(&symbol_short!("POLICIES"), &policies);
             true
         } else {
-            false
-        let mut policy = policies.get(policy_id).expect("Policy not found");
-
-        // Access control: verify caller is the owner
-        if policy.owner != caller {
-            panic!("Only the policy owner can deactivate this policy");
+            panic!("Policy not found");
         }
-
-        policy.active = false;
-        policies.set(policy_id, policy);
-        env.storage()
-            .instance()
-            .set(&symbol_short!("POLICIES"), &policies);
-
-        // Emit event for audit trail
-        env.events().publish(
-            (symbol_short!("insure"), InsuranceEvent::PolicyDeactivated),
-            (policy_id, caller),
-        );
-
-        true
     }
 
     /// Extend the TTL of instance storage
@@ -668,9 +639,11 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Insurance);
         let client = InsuranceClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create a policy
         let policy_id = client.create_policy(
+            &owner,
             &String::from_str(&env, "Health Insurance"),
             &String::from_str(&env, "health"),
             &100,
@@ -688,20 +661,24 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Insurance);
         let client = InsuranceClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create a policy
         let policy_id = client.create_policy(
+            &owner,
             &String::from_str(&env, "Emergency Coverage"),
             &String::from_str(&env, "emergency"),
             &75,
             &25000,
         );
 
+        env.mock_all_auths();
+
         // Get events before paying premium
         let events_before = env.events().all().len();
 
         // Pay premium
-        let result = client.pay_premium(&policy_id);
+        let result = client.pay_premium(&owner, &policy_id);
         assert!(result);
 
         // Verify PremiumPaid event was emitted (1 new event)
@@ -714,20 +691,24 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Insurance);
         let client = InsuranceClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create a policy
         let policy_id = client.create_policy(
+            &owner,
             &String::from_str(&env, "Life Insurance"),
             &String::from_str(&env, "life"),
             &200,
             &100000,
         );
 
+        env.mock_all_auths();
+
         // Get events before deactivating
         let events_before = env.events().all().len();
 
         // Deactivate policy
-        let result = client.deactivate_policy(&policy_id);
+        let result = client.deactivate_policy(&owner, &policy_id);
         assert!(result);
 
         // Verify PolicyDeactivated event was emitted (1 new event)
@@ -740,21 +721,25 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Insurance);
         let client = InsuranceClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create multiple policies
         client.create_policy(
+            &owner,
             &String::from_str(&env, "Policy 1"),
             &String::from_str(&env, "health"),
             &100,
             &50000,
         );
         client.create_policy(
+            &owner,
             &String::from_str(&env, "Policy 2"),
             &String::from_str(&env, "life"),
             &200,
             &100000,
         );
         client.create_policy(
+            &owner,
             &String::from_str(&env, "Policy 3"),
             &String::from_str(&env, "emergency"),
             &75,
@@ -771,20 +756,24 @@ mod test {
         let env = Env::default();
         let contract_id = env.register_contract(None, Insurance);
         let client = InsuranceClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create a policy
         let policy_id = client.create_policy(
+            &owner,
             &String::from_str(&env, "Complete Lifecycle"),
             &String::from_str(&env, "health"),
             &150,
             &75000,
         );
 
+        env.mock_all_auths();
+
         // Pay premium
-        client.pay_premium(&policy_id);
+        client.pay_premium(&owner, &policy_id);
 
         // Deactivate
-        client.deactivate_policy(&policy_id);
+        client.deactivate_policy(&owner, &policy_id);
 
         // Should have 3 events: Created, PremiumPaid, Deactivated
         let events = env.events().all();

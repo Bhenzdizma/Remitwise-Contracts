@@ -1,6 +1,6 @@
 #![no_std]
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Env, Map, String, Symbol, Vec,
+    contract, contractimpl, contracttype, symbol_short, Address, Env, Map, String, Symbol, Vec,
 };
 
 // Event topics
@@ -36,9 +36,6 @@ pub struct GoalCompletedEvent {
     pub final_amount: i128,
     pub timestamp: u64,
 }
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, Map, String, Symbol, Vec,
-};
 
 // Storage TTL constants
 const INSTANCE_LIFETIME_THRESHOLD: u32 = 17280; // ~1 day
@@ -197,7 +194,7 @@ impl SavingsGoalContract {
             unlock_date: None,
         };
 
-        goals.set(next_id, goal);
+        goals.set(next_id, goal.clone());
         env.storage()
             .instance()
             .set(&symbol_short!("GOALS"), &goals);
@@ -208,7 +205,7 @@ impl SavingsGoalContract {
         // Emit GoalCreated event
         let event = GoalCreatedEvent {
             goal_id: next_id,
-            name: name.clone(),
+            name: goal.name.clone(),
             target_amount,
             target_date,
             timestamp: env.ledger().timestamp(),
@@ -288,40 +285,9 @@ impl SavingsGoalContract {
 
             goal.current_amount
         } else {
-            -1 // Goal not found
-        let mut goal = goals.get(goal_id).expect("Goal not found");
-
-        // Access control: verify caller is the owner
-        if goal.owner != caller {
             Self::append_audit(&env, symbol_short!("add"), &caller, false);
-            panic!("Only the goal owner can add funds");
+            panic!("Goal not found");
         }
-
-        goal.current_amount = goal.current_amount.checked_add(amount).expect("overflow");
-        let new_amount = goal.current_amount;
-        let is_completed = goal.current_amount >= goal.target_amount;
-        let goal_owner = goal.owner.clone();
-
-        goals.set(goal_id, goal);
-        env.storage()
-            .instance()
-            .set(&symbol_short!("GOALS"), &goals);
-
-        Self::append_audit(&env, symbol_short!("add"), &caller, true);
-        env.events().publish(
-            (symbol_short!("savings"), SavingsEvent::FundsAdded),
-            (goal_id, goal_owner.clone(), amount),
-        );
-
-        // Emit completion event if goal is now complete
-        if is_completed {
-            env.events().publish(
-                (symbol_short!("savings"), SavingsEvent::GoalCompleted),
-                (goal_id, goal_owner),
-            );
-        }
-
-        new_amount
     }
 
     /// Withdraw funds from a savings goal
@@ -1043,11 +1009,13 @@ mod test {
     #[test]
     fn test_create_goal_emits_event() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoals);
-        let client = SavingsGoalsClient::new(&env, &contract_id);
+        let contract_id = env.register_contract(None, SavingsGoalContract);
+        let client = SavingsGoalContractClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create a goal
         let goal_id = client.create_goal(
+            &owner,
             &String::from_str(&env, "Education"),
             &10000,
             &1735689600, // Future date
@@ -1062,17 +1030,25 @@ mod test {
     #[test]
     fn test_add_to_goal_emits_event() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoals);
-        let client = SavingsGoalsClient::new(&env, &contract_id);
+        let contract_id = env.register_contract(None, SavingsGoalContract);
+        let client = SavingsGoalContractClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create a goal
-        let goal_id = client.create_goal(&String::from_str(&env, "Medical"), &5000, &1735689600);
+        let goal_id = client.create_goal(
+            &owner,
+            &String::from_str(&env, "Medical"),
+            &5000,
+            &1735689600,
+        );
 
         // Get events before adding funds
         let events_before = env.events().all().len();
 
+        env.mock_all_auths();
+
         // Add funds
-        let new_amount = client.add_to_goal(&goal_id, &1000);
+        let new_amount = client.add_to_goal(&owner, &goal_id, &1000);
         assert_eq!(new_amount, 1000);
 
         // Verify 1 new event was emitted (FundsAdded event)
@@ -1083,11 +1059,13 @@ mod test {
     #[test]
     fn test_goal_completed_emits_event() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoals);
-        let client = SavingsGoalsClient::new(&env, &contract_id);
+        let contract_id = env.register_contract(None, SavingsGoalContract);
+        let client = SavingsGoalContractClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create a goal with small target
         let goal_id = client.create_goal(
+            &owner,
             &String::from_str(&env, "Emergency Fund"),
             &1000,
             &1735689600,
@@ -1096,8 +1074,10 @@ mod test {
         // Get events before adding funds
         let events_before = env.events().all().len();
 
+        env.mock_all_auths();
+
         // Add funds to complete the goal
-        client.add_to_goal(&goal_id, &1000);
+        client.add_to_goal(&owner, &goal_id, &1000);
 
         // Verify both FundsAdded and GoalCompleted events were emitted (2 new events)
         let events_after = env.events().all().len();
@@ -1107,17 +1087,32 @@ mod test {
     #[test]
     fn test_multiple_goals_emit_separate_events() {
         let env = Env::default();
-        let contract_id = env.register_contract(None, SavingsGoals);
-        let client = SavingsGoalsClient::new(&env, &contract_id);
+        let contract_id = env.register_contract(None, SavingsGoalContract);
+        let client = SavingsGoalContractClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
 
         // Create multiple goals
-        client.create_goal(&String::from_str(&env, "Goal 1"), &1000, &1735689600);
-        client.create_goal(&String::from_str(&env, "Goal 2"), &2000, &1735689600);
-        client.create_goal(&String::from_str(&env, "Goal 3"), &3000, &1735689600);
+        client.create_goal(
+            &owner,
+            &String::from_str(&env, "Goal 1"),
+            &1000,
+            &1735689600,
+        );
+        client.create_goal(
+            &owner,
+            &String::from_str(&env, "Goal 2"),
+            &2000,
+            &1735689600,
+        );
+        client.create_goal(
+            &owner,
+            &String::from_str(&env, "Goal 3"),
+            &3000,
+            &1735689600,
+        );
 
         // Should have 3 GoalCreated events
         let events = env.events().all();
         assert_eq!(events.len(), 3);
     }
 }
-mod test;
