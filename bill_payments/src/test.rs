@@ -772,24 +772,23 @@ mod testsuit {
 
         // Create 15 unpaid bills for the owner (chosen count > 10 for meaningful testing)
         let bill_names = [
-            "Bill 0", "Bill 1", "Bill 2", "Bill 3", "Bill 4",
-            "Bill 5", "Bill 6", "Bill 7", "Bill 8", "Bill 9",
-            "Bill 10", "Bill 11", "Bill 12", "Bill 13", "Bill 14"
+            "Bill 0", "Bill 1", "Bill 2", "Bill 3", "Bill 4", "Bill 5", "Bill 6", "Bill 7",
+            "Bill 8", "Bill 9", "Bill 10", "Bill 11", "Bill 12", "Bill 13", "Bill 14",
         ];
-        
+
         let mut created_bill_ids = Vec::new(&env);
         let mut expected_total = 0i128;
-        
+
         for i in 0..15 {
             let amount = 1000 + (i as i128 * 100);
             expected_total += amount;
-            
+
             let bill_id = client.create_bill(
                 &owner,
                 &String::from_str(&env, bill_names[i]),
                 &amount,
                 &(1000000 + (i as u64 * 10000)), // Different due dates
-                &false, // Not recurring
+                &false,                          // Not recurring
                 &0,
             );
             created_bill_ids.push_back(bill_id);
@@ -797,7 +796,11 @@ mod testsuit {
 
         // Test get_unpaid_bills returns correct count
         let unpaid_bills = client.get_unpaid_bills(&owner);
-        assert_eq!(unpaid_bills.len(), 15, "Should return exactly 15 unpaid bills");
+        assert_eq!(
+            unpaid_bills.len(),
+            15,
+            "Should return exactly 15 unpaid bills"
+        );
 
         // Verify all returned bills belong to the owner and are unpaid
         for i in 0..unpaid_bills.len() {
@@ -811,7 +814,10 @@ mod testsuit {
         for i in 0..unpaid_bills.len() {
             let bill = unpaid_bills.get(i).unwrap();
             found_ids.push_back(bill.id);
-            assert!(bill.id >= 1 && bill.id <= 15, "Bill ID should be in range 1..=15");
+            assert!(
+                bill.id >= 1 && bill.id <= 15,
+                "Bill ID should be in range 1..=15"
+            );
         }
 
         // Verify no duplicate IDs
@@ -827,7 +833,10 @@ mod testsuit {
 
         // Test get_total_unpaid matches sum of all bill amounts
         let total_unpaid = client.get_total_unpaid(&owner);
-        assert_eq!(total_unpaid, expected_total, "Total unpaid should match sum of all bill amounts");
+        assert_eq!(
+            total_unpaid, expected_total,
+            "Total unpaid should match sum of all bill amounts"
+        );
 
         // Test isolation: create bills for different owner
         let other_owner = <soroban_sdk::Address as AddressTrait>::generate(&env);
@@ -842,11 +851,19 @@ mod testsuit {
 
         // Verify first owner's bills are not affected
         let owner_unpaid_after = client.get_unpaid_bills(&owner);
-        assert_eq!(owner_unpaid_after.len(), 15, "Owner's unpaid bills should remain unchanged");
+        assert_eq!(
+            owner_unpaid_after.len(),
+            15,
+            "Owner's unpaid bills should remain unchanged"
+        );
 
         // Verify other owner's bills are separate
         let other_unpaid = client.get_unpaid_bills(&other_owner);
-        assert_eq!(other_unpaid.len(), 1, "Other owner should have exactly 1 unpaid bill");
+        assert_eq!(
+            other_unpaid.len(),
+            1,
+            "Other owner should have exactly 1 unpaid bill"
+        );
     }
 
     #[test]
@@ -860,18 +877,17 @@ mod testsuit {
 
         // Create 12 unpaid bills for the owner
         let bill_names = [
-            "Bill 0", "Bill 1", "Bill 2", "Bill 3", "Bill 4",
-            "Bill 5", "Bill 6", "Bill 7", "Bill 8", "Bill 9",
-            "Bill 10", "Bill 11"
+            "Bill 0", "Bill 1", "Bill 2", "Bill 3", "Bill 4", "Bill 5", "Bill 6", "Bill 7",
+            "Bill 8", "Bill 9", "Bill 10", "Bill 11",
         ];
-        
+
         let mut bill_ids = Vec::new(&env);
         let mut expected_total = 0i128;
-        
+
         for i in 0..12 {
             let amount = 1000 + (i as i128 * 100);
             expected_total += amount;
-            
+
             let bill_id = client.create_bill(
                 &owner,
                 &String::from_str(&env, bill_names[i]),
@@ -897,14 +913,21 @@ mod testsuit {
         // Verify decreased counts
         let after_payment_unpaid = client.get_unpaid_bills(&owner);
         let after_payment_total = client.get_total_unpaid(&owner);
-        assert_eq!(after_payment_unpaid.len(), 9, "Should have 9 unpaid bills after paying 3");
-        
+        assert_eq!(
+            after_payment_unpaid.len(),
+            9,
+            "Should have 9 unpaid bills after paying 3"
+        );
+
         // Calculate expected total after paying first 3 bills
         let mut expected_remaining = expected_total;
         for i in 0..3 {
             expected_remaining -= 1000 + (i as i128 * 100);
         }
-        assert_eq!(after_payment_total, expected_remaining, "Total should decrease by paid amounts");
+        assert_eq!(
+            after_payment_total, expected_remaining,
+            "Total should decrease by paid amounts"
+        );
 
         // Verify paid bills are no longer in unpaid list
         for i in 0..3 {

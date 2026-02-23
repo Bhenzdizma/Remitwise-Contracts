@@ -1127,16 +1127,15 @@ fn test_get_all_goals_many_items() {
 
     // Create 12 goals for the owner (chosen count > 10 for meaningful testing)
     let goal_names = [
-        "Goal 0", "Goal 1", "Goal 2", "Goal 3", "Goal 4",
-        "Goal 5", "Goal 6", "Goal 7", "Goal 8", "Goal 9",
-        "Goal 10", "Goal 11"
+        "Goal 0", "Goal 1", "Goal 2", "Goal 3", "Goal 4", "Goal 5", "Goal 6", "Goal 7", "Goal 8",
+        "Goal 9", "Goal 10", "Goal 11",
     ];
-    
+
     let mut created_goal_ids = Vec::new(&env);
-    
+
     for i in 0..12 {
         let target_amount = 1000 + (i as i128 * 100);
-        
+
         let goal_id = client.create_goal(
             &owner,
             &String::from_str(&env, goal_names[i]),
@@ -1161,7 +1160,10 @@ fn test_get_all_goals_many_items() {
     for i in 0..all_goals.len() {
         let goal = all_goals.get(i).unwrap();
         found_ids.push_back(goal.id);
-        assert!(goal.id >= 1 && goal.id <= 12, "Goal ID should be in range 1..=12");
+        assert!(
+            goal.id >= 1 && goal.id <= 12,
+            "Goal ID should be in range 1..=12"
+        );
     }
 
     // Verify no duplicate IDs
@@ -1186,9 +1188,17 @@ fn test_get_all_goals_many_items() {
 
     // Verify first owner's goals are not affected
     let owner_goals_after = client.get_all_goals(&owner);
-    assert_eq!(owner_goals_after.len(), 12, "Owner's goals should remain unchanged");
+    assert_eq!(
+        owner_goals_after.len(),
+        12,
+        "Owner's goals should remain unchanged"
+    );
 
     // Verify other owner's goals are separate
     let other_owner_goals = client.get_all_goals(&other_owner);
-    assert_eq!(other_owner_goals.len(), 1, "Other owner should have exactly 1 goal");
+    assert_eq!(
+        other_owner_goals.len(),
+        1,
+        "Other owner should have exactly 1 goal"
+    );
 }
