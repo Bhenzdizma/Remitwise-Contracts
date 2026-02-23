@@ -7,6 +7,7 @@ use soroban_sdk::{
     contract, contracterror, contractimpl, contracttype, symbol_short, Address, Env, Map, String,
     Symbol, Vec,
 };
+
 // Storage TTL constants
 const INSTANCE_LIFETIME_THRESHOLD: u32 = 17280;
 const INSTANCE_BUMP_AMOUNT: u32 = 518400;
@@ -154,7 +155,7 @@ impl BillPayments {
     }
 
     // -----------------------------------------------------------------------
-    // Pause / upgrade (unchanged from original)
+    // Pause / upgrade
     // -----------------------------------------------------------------------
 
     pub fn set_pause_admin(env: Env, caller: Address, new_admin: Address) -> Result<(), Error> {
@@ -341,7 +342,7 @@ impl BillPayments {
     }
 
     // -----------------------------------------------------------------------
-    // Core bill operations (unchanged)
+    // Core bill operations
     // -----------------------------------------------------------------------
 
     pub fn create_bill(
@@ -491,7 +492,7 @@ impl BillPayments {
     }
 
     // -----------------------------------------------------------------------
-    // PAGINATED LIST QUERIES  (new in this version)
+    // PAGINATED LIST QUERIES
     // -----------------------------------------------------------------------
 
     /// Get a page of unpaid bills for `owner`.
@@ -512,9 +513,6 @@ impl BillPayments {
             .get(&symbol_short!("BILLS"))
             .unwrap_or_else(|| Map::new(&env));
 
-        // Collect all matching items into a staging buffer (limit+1 max).
-        // We must gather limit+1 *matching* items to know if a next page exists,
-        // because non-matching items (wrong owner / paid) must be skipped entirely.
         let mut staging: Vec<(u32, Bill)> = Vec::new(&env);
         for (id, bill) in bills.iter() {
             if id <= cursor {
@@ -525,7 +523,7 @@ impl BillPayments {
             }
             staging.push_back((id, bill));
             if staging.len() > limit {
-                break; // have limit+1 matching items — enough to determine next_cursor
+                break;
             }
         }
 
@@ -625,15 +623,15 @@ impl BillPayments {
     }
 
     /// Build a `BillPage` from a staging buffer of up to `limit+1` matching items.
-    /// If the buffer has more than `limit` entries the last one becomes `next_cursor`.
-    /// Soroban `Vec::len()` returns `u32`, so all arithmetic stays in `u32`.
+    /// `next_cursor` is set to the last *returned* item's ID so the next call's
+    /// `id <= cursor` filter correctly skips past it.
     fn build_page(env: &Env, staging: Vec<(u32, Bill)>, limit: u32) -> BillPage {
-        let n = staging.len(); // u32 in Soroban
+        let n = staging.len();
         let has_next = n > limit;
         let mut items = Vec::new(env);
         let mut next_cursor: u32 = 0;
 
-        // Number of items to emit: all of them, or all-but-last if there's a next page.
+        // Emit all items, or all-but-last if there is a next page
         let take = if has_next { n - 1 } else { n };
 
         for i in 0..take {
@@ -642,14 +640,14 @@ impl BillPayments {
             }
         }
 
+        // next_cursor = last returned item's ID (NOT the first skipped item)
         if has_next {
             if let Some((id, _)) = staging.get(take - 1) {
-                // take - 1 = last emitted item
                 next_cursor = id;
             }
         }
 
-        let count = items.len(); // u32
+        let count = items.len();
         BillPage {
             items,
             next_cursor,
@@ -658,7 +656,7 @@ impl BillPayments {
     }
 
     // -----------------------------------------------------------------------
-    // Backward-compat "get all" wrappers (collect every page internally)
+    // Backward-compat helpers
     // -----------------------------------------------------------------------
 
     /// Legacy helper: returns ALL unpaid bills for owner in one Vec.
@@ -749,7 +747,7 @@ impl BillPayments {
     }
 
     // -----------------------------------------------------------------------
-    // Remaining operations (unchanged)
+    // Remaining operations
     // -----------------------------------------------------------------------
 
     pub fn cancel_bill(env: Env, caller: Address, bill_id: u32) -> Result<(), Error> {
@@ -1132,7 +1130,7 @@ mod test {
     }
 
     /// Create `count` bills with a static name. Returns their IDs.
-    /// Due dates are set in the future (timestamp + offset) so they are NOT overdue.
+    /// Due dates are set in the future so they are NOT overdue.
     fn setup_bills(
         env: &Env,
         client: &BillPaymentsClient,
@@ -1141,12 +1139,11 @@ mod test {
     ) -> Vec<u32> {
         let mut ids = Vec::new(env);
         for i in 0..count {
-            // Soroban client methods return the value directly (not Result)
             let id = client.create_bill(
                 owner,
                 &String::from_str(env, "Test Bill"),
                 &(100i128 * (i as i128 + 1)),
-                &(env.ledger().timestamp() + 86400 * (i as u64 + 1)), // future due date
+                &(env.ledger().timestamp() + 86400 * (i as u64 + 1)),
                 &false,
                 &0,
             );
@@ -1218,7 +1215,6 @@ mod test {
         let owner = Address::generate(&env);
 
         let ids = setup_bills(&env, &client, &owner, 4);
-        // pay_bill returns () — do NOT call .unwrap() on it
         let second_id = ids.get(1).unwrap();
         client.pay_bill(&owner, &second_id);
 
@@ -1255,7 +1251,6 @@ mod test {
         let client = BillPaymentsClient::new(&env, &cid);
         let owner = Address::generate(&env);
 
-        // Future due dates — none overdue
         setup_bills(&env, &client, &owner, 3);
         let page = client.get_overdue_bills(&0, &10);
         assert_eq!(page.count, 0);
@@ -1269,21 +1264,17 @@ mod test {
         let client = BillPaymentsClient::new(&env, &cid);
         let owner = Address::generate(&env);
 
-        // Ledger starts at timestamp 0. Create bills with due_date = 0.
-        // The check is `bill.due_date < current_time`. At timestamp 0, 0 < 0 is false.
-        // So we advance the ledger to timestamp 1 after creating bills.
         for _ in 0..6u32 {
             client.create_bill(
                 &owner,
                 &String::from_str(&env, "Overdue Bill"),
                 &100,
-                &0, // due at epoch 0
+                &0,
                 &false,
                 &0,
             );
         }
 
-        // Advance ledger so bills become overdue
         env.ledger().set_timestamp(1);
 
         let page1 = client.get_overdue_bills(&0, &4);
@@ -1307,11 +1298,10 @@ mod test {
 
         let ids = setup_bills(&env, &client, &owner, 5);
         let first_id = ids.get(0).unwrap();
-        // pay_bill returns () — no .unwrap()
         client.pay_bill(&owner, &first_id);
 
         let page = client.get_all_bills_for_owner(&owner, &0, &10);
-        assert_eq!(page.count, 5); // both paid and unpaid
+        assert_eq!(page.count, 5);
     }
 
     // --- limit clamping ---
@@ -1353,15 +1343,12 @@ mod test {
         let client = BillPaymentsClient::new(&env, &cid);
         let owner = Address::generate(&env);
 
-        // set_pause_admin returns () — no .unwrap()
         client.set_pause_admin(&owner, &owner);
 
         let ids = setup_bills(&env, &client, &owner, 6);
-        // pay all — pay_bill returns ()
         for bill_id in ids.iter() {
             client.pay_bill(&owner, &bill_id);
         }
-        // archive_paid_bills returns u32 (count) — no .unwrap()
         client.archive_paid_bills(&owner, &u64::MAX);
 
         let page1 = client.get_archived_bills(&owner, &0, &4);

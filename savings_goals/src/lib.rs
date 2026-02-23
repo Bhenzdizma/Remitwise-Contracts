@@ -188,7 +188,7 @@ impl SavingsGoalContract {
     }
 
     // -----------------------------------------------------------------------
-    // Pause / upgrade (unchanged)
+    // Pause / upgrade
     // -----------------------------------------------------------------------
 
     pub fn init(env: Env) {
@@ -220,6 +220,7 @@ impl SavingsGoalContract {
             .instance()
             .set(&symbol_short!("PAUSE_ADM"), &new_admin);
     }
+
     pub fn pause(env: Env, caller: Address) {
         caller.require_auth();
         let admin = Self::get_pause_admin(&env).expect("No pause admin set");
@@ -232,6 +233,7 @@ impl SavingsGoalContract {
         env.events()
             .publish((symbol_short!("savings"), symbol_short!("paused")), ());
     }
+
     pub fn unpause(env: Env, caller: Address) {
         caller.require_auth();
         let admin = Self::get_pause_admin(&env).expect("No pause admin set");
@@ -251,6 +253,7 @@ impl SavingsGoalContract {
         env.events()
             .publish((symbol_short!("savings"), symbol_short!("unpaused")), ());
     }
+
     pub fn pause_function(env: Env, caller: Address, func: Symbol) {
         caller.require_auth();
         let admin = Self::get_pause_admin(&env).expect("No pause admin set");
@@ -267,6 +270,7 @@ impl SavingsGoalContract {
             .instance()
             .set(&symbol_short!("PAUSED_FN"), &m);
     }
+
     pub fn unpause_function(env: Env, caller: Address, func: Symbol) {
         caller.require_auth();
         let admin = Self::get_pause_admin(&env).expect("No pause admin set");
@@ -283,18 +287,22 @@ impl SavingsGoalContract {
             .instance()
             .set(&symbol_short!("PAUSED_FN"), &m);
     }
+
     pub fn is_paused(env: Env) -> bool {
         Self::get_global_paused(&env)
     }
+
     pub fn get_version(env: Env) -> u32 {
         env.storage()
             .instance()
             .get(&symbol_short!("VERSION"))
             .unwrap_or(CONTRACT_VERSION)
     }
+
     fn get_upgrade_admin(env: &Env) -> Option<Address> {
         env.storage().instance().get(&symbol_short!("UPG_ADM"))
     }
+
     pub fn set_upgrade_admin(env: Env, caller: Address, new_admin: Address) {
         caller.require_auth();
         let current = Self::get_upgrade_admin(&env);
@@ -311,6 +319,7 @@ impl SavingsGoalContract {
             .instance()
             .set(&symbol_short!("UPG_ADM"), &new_admin);
     }
+
     pub fn set_version(env: Env, caller: Address, new_version: u32) {
         caller.require_auth();
         let admin = Self::get_upgrade_admin(&env).expect("No upgrade admin set");
@@ -328,7 +337,7 @@ impl SavingsGoalContract {
     }
 
     // -----------------------------------------------------------------------
-    // Core goal operations (unchanged)
+    // Core goal operations
     // -----------------------------------------------------------------------
 
     pub fn create_goal(
@@ -705,7 +714,7 @@ impl SavingsGoalContract {
     }
 
     // -----------------------------------------------------------------------
-    // PAGINATED LIST QUERIES  (new in this version)
+    // PAGINATED LIST QUERIES
     // -----------------------------------------------------------------------
 
     /// Get a page of savings goals for `owner`.
@@ -740,12 +749,13 @@ impl SavingsGoalContract {
             if collected < limit {
                 result.push_back(goal);
                 collected += 1;
-                next_cursor = id;
+                next_cursor = id; // track last returned ID
             } else {
                 break;
             }
         }
 
+        // If we didn't fill the page, there are no more items
         if collected < limit {
             next_cursor = 0;
         }
@@ -787,7 +797,7 @@ impl SavingsGoalContract {
     }
 
     // -----------------------------------------------------------------------
-    // Snapshot, audit, schedule (unchanged)
+    // Snapshot, audit, schedule
     // -----------------------------------------------------------------------
 
     pub fn get_nonce(env: Env, address: Address) -> u64 {
