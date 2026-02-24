@@ -14,3 +14,5 @@ Makefile
 # Documentation files
 *.md
 !docs/adr-admin-role.md
+!docs/family-wallet-design.md
+!docs/frontend-integration.md

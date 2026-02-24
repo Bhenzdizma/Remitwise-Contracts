@@ -10,6 +10,7 @@ This workspace contains the core smart contracts that power RemitWise's post-rem
 - **savings_goals**: Goal-based savings with target dates and locked funds
 - **bill_payments**: Automated bill payment tracking and scheduling
 - **insurance**: Micro-insurance policy management and premium payments
+- **family_wallet**: Family governance, multisig approvals, and emergency transfer controls
 
 ## Prerequisites
 
@@ -26,6 +27,11 @@ cargo install --locked --version 21.0.0 soroban-cli
 # Build all contracts
 cargo build --release --target wasm32-unknown-unknown
 ```
+
+## Documentation
+
+- [Family Wallet Design (as implemented)](docs/family-wallet-design.md)
+- [Frontend Integration Notes](docs/frontend-integration.md)
 
 ## Contracts
 
@@ -113,6 +119,22 @@ Manages micro-insurance policies and premium payments.
 - `PolicyDeactivatedEvent`: Emitted when a policy is deactivated
   - `policy_id`, `name`, `timestamp`
 
+### Family Wallet
+
+Manages family roles, spending controls, multisig approvals, and emergency transfer policies.
+
+**Key Functions:**
+
+- `init`: Initialize owner, members, default multisig configs, and emergency settings
+- `add_member` / `update_spending_limit`: Manage role assignments and per-member spending limits
+- `configure_multisig`, `propose_transaction`, `sign_transaction`: Configure and execute multisig-gated actions
+- `withdraw`: Execute direct or multisig withdrawal depending on configured threshold
+- `configure_emergency`, `set_emergency_mode`, `propose_emergency_transfer`: Configure and run emergency transfer paths
+- `pause`, `unpause`, `set_pause_admin`: Operational control switches
+- `archive_old_transactions`, `cleanup_expired_pending`, `get_storage_stats`: Storage maintenance and observability
+
+For full design details, see [docs/family-wallet-design.md](docs/family-wallet-design.md).
+
 ## Events
 
 All contracts emit events for important state changes, enabling real-time tracking and frontend integration. Events follow Soroban best practices and include:
@@ -129,6 +151,7 @@ Each contract uses short symbol topics for efficient event identification:
 - **Savings Goals**: `created`, `added`, `completed`
 - **Bill Payments**: `created`, `paid`, `recurring`
 - **Insurance**: `created`, `paid`, `deactive`
+- **Family Wallet**: `added/member`, `updated/limit`, `emerg/*`, `wallet/*`
 
 ### Querying Events
 
