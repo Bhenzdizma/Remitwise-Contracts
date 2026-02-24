@@ -966,8 +966,22 @@ mod test {
     }
 
     #[test]
-    fn test_get_active_policies_multiple_pages() {
-        let env = make_env();
+    fn test_pay_premium_policy_not_found() {
+        let env = Env::default();
+        env.mock_all_auths();
+        let contract_id = env.register_contract(None, Insurance);
+        let client = InsuranceClient::new(&env, &contract_id);
+        let owner = Address::generate(&env);
+
+        // No policies created — policy ID 999 does not exist
+        let result = client.try_pay_premium(&owner, &999u32);
+
+        assert_eq!(result, Err(Ok(InsuranceError::PolicyNotFound)));
+    }
+
+    #[test]
+    fn test_create_policy_emits_event() {
+        let env = Env::default();
         env.mock_all_auths();
         let id = env.register_contract(None, Insurance);
         let client = InsuranceClient::new(&env, &id);
