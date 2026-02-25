@@ -10,7 +10,7 @@ This workspace contains the core smart contracts that power RemitWise's post-rem
 - **savings_goals**: Goal-based savings with target dates and locked funds
 - **bill_payments**: Automated bill payment tracking and scheduling
 - **insurance**: Micro-insurance policy management and premium payments
-- **family_wallet**: Shared family wallet with multi-sig approval and emergency mode
+- **family_wallet**: Family governance, multisig approvals, and emergency transfer controls
 
 ## Prerequisites
 
@@ -215,19 +215,10 @@ cargo install --locked --version 21.0.0 soroban-cli
 cargo build --release --target wasm32-unknown-unknown
 ```
 
-## Formal Specifications
+## Documentation
 
-Full formal specifications for all contracts are in the [`specs/`](./specs/) directory. Each spec documents every public function's inputs, preconditions, required authorizations, storage key changes, emitted events, and contract-level invariants.
-
-| Contract | Specification |
-|---|---|
-| `remittance_split` | [specs/remittance_split.md](./specs/remittance_split.md) |
-| `savings_goals` | [specs/savings_goals.md](./specs/savings_goals.md) |
-| `bill_payments` | [specs/bill_payments.md](./specs/bill_payments.md) |
-| `insurance` | [specs/insurance.md](./specs/insurance.md) |
-| `family_wallet` | [specs/family_wallet.md](./specs/family_wallet.md) |
-
-See [`specs/README.md`](./specs/README.md) for guidance on reading the specifications.
+- [Family Wallet Design (as implemented)](docs/family-wallet-design.md)
+- [Frontend Integration Notes](docs/frontend-integration.md)
 
 ## Contracts
 
@@ -317,42 +308,19 @@ Manages micro-insurance policies and premium payments.
 
 ### Family Wallet
 
-Manages a shared family wallet with authorized members, per-member spending limits, multi-signature approval for large transactions, and an emergency disbursement mode.
+Manages family roles, spending controls, multisig approvals, and emergency transfer policies.
 
 **Key Functions:**
 
-- `initialize_wallet`: Set up wallet with owner, members, and multi-sig threshold
-- `add_member`: Add an authorized family member with optional spending limit
-- `remove_member`: Revoke a member's wallet access
-- `deposit`: Deposit remittance funds into the wallet
-- `disburse`: Disburse funds to a recipient (queued for multi-sig if above threshold)
-- `approve_transaction`: Add a multi-sig approval signature; executes when threshold is met
-- `enable_emergency_mode`: Activate priority disbursement to a designated address
-- `disable_emergency_mode`: Return wallet to normal operation
-- `get_balance`: Get current wallet balance
-- `get_members`: List all authorized members
+- `init`: Initialize owner, members, default multisig configs, and emergency settings
+- `add_member` / `update_spending_limit`: Manage role assignments and per-member spending limits
+- `configure_multisig`, `propose_transaction`, `sign_transaction`: Configure and execute multisig-gated actions
+- `withdraw`: Execute direct or multisig withdrawal depending on configured threshold
+- `configure_emergency`, `set_emergency_mode`, `propose_emergency_transfer`: Configure and run emergency transfer paths
+- `pause`, `unpause`, `set_pause_admin`: Operational control switches
+- `archive_old_transactions`, `cleanup_expired_pending`, `get_storage_stats`: Storage maintenance and observability
 
-**Events:**
-- `WalletInitializedEvent`: Emitted when wallet is set up
-  - `owner`, `member_count`, `multisig_threshold`, `required_signers`, `timestamp`
-- `MemberAddedEvent`: Emitted when a new member is authorized
-  - `member`, `spending_limit`, `timestamp`
-- `MemberRemovedEvent`: Emitted when a member is removed
-  - `member`, `timestamp`
-- `FundsDepositedEvent`: Emitted when funds are deposited
-  - `depositor`, `amount`, `new_balance`, `timestamp`
-- `FundsDisbursedEvent`: Emitted on immediate disbursement (below multi-sig threshold)
-  - `recipient`, `amount`, `initiator`, `timestamp`
-- `MultiSigTransactionQueuedEvent`: Emitted when a large transaction is queued for approval
-  - `tx_id`, `recipient`, `amount`, `initiator`, `required_signers`, `timestamp`
-- `TransactionApprovedEvent`: Emitted when a member adds an approval signature
-  - `tx_id`, `approver`, `approvals_count`, `timestamp`
-- `MultiSigTransactionExecutedEvent`: Emitted when approval threshold is reached and transaction executes
-  - `tx_id`, `recipient`, `amount`, `timestamp`
-- `EmergencyModeEnabledEvent`: Emitted when emergency mode is activated
-  - `priority_address`, `timestamp`
-- `EmergencyModeDisabledEvent`: Emitted when emergency mode is deactivated
-  - `timestamp`
+For full design details, see [docs/family-wallet-design.md](docs/family-wallet-design.md).
 
 ## Events
 
@@ -370,7 +338,7 @@ Each contract uses short symbol topics for efficient event identification:
 - **Savings Goals**: `created`, `added`, `completed`
 - **Bill Payments**: `created`, `paid`, `recurring`
 - **Insurance**: `created`, `paid`, `deactive`
-- **Family Wallet**: `init`, `member_add`, `member_rm`, `deposit`, `disburse`, `queued`, `approved`, `executed`, `emergency_on`, `emergency_off`
+- **Family Wallet**: `added/member`, `updated/limit`, `emerg/*`, `wallet/*`
 
 ### Querying Events
 
